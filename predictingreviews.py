@@ -102,14 +102,23 @@ def clean_up(stringtext,n):
 
 class gramdict:
     def __init__(self,listone,listtwo,number):
+        ##Creates a list of decision rules for two distinct lists of grams.
+        ##Dictionary counts the occurences of grams in the first list.
         dictone = {}
+        ##Dictionary counts the occurences of grams in the second list.
         dicttwo = {}
+        ##listonegrams is the total number of grams in listone
         listonegrams = len(listone)
-        #print listonegrams
+        ##listtwograms is the total number of grams in listtwo
         listtwograms = len(listtwo)
         #print listtwograms
         dictionary = {}
+        ##Allvocab is the number of distinct grams in either list.
         allvocab = set(listone + listtwo)
+        ##vocabone is the number of distinct grams in the first list.
+        vocabone = len(set(listone))
+        ##vocabtwo is the number of distinct grams in the second list.
+        vocabtwo = len(set(listtwo))
         for x in listone:
             try:
                 dictone[x] += 1
@@ -122,6 +131,9 @@ class gramdict:
                 dicttwo[y] =1
         rules =[]
         for z in allvocab:
+        ##we now create a rule for each gram that occurs in either list by looking at the frequencies
+        ##of grams in each list. numone is the number of appearances of a gram in listone.
+        ##num two is the number of appearance of a gram in listtwo.
             try:
                 numone = dictone[z]
             except:
@@ -129,39 +141,56 @@ class gramdict:
             try:
                 numtwo = dicttwo[z]
             except:
-                numtwo = 0    
+                numtwo = 0
+            ## we now determine in which list the gram is more frequent, and calculate a rule in favor of it.
+            ## the rules are sorted by the lower bounds of a confidence interval calculated below.
             if (numone/float(numtwo+numone)) > (listonegrams/float(listonegrams+listtwograms)):
+                #p is the proportion of all instances of a gram occuring in list one.
+                #q is the proprtion of all grams occuring in list one. used for normalizing.
+                #v is the proportion of all distinct grams occuring in list one. used for normalizing.
+                #n is the total number of occurences of the gram.
                 p = (numone/float(numtwo+numone))
                 q = listonegrams/float(listonegrams+listtwograms)
+                v = vocabone/float(vocabone+vocabtwo)
                 n = numone + numtwo
                 if numone == n:
                     ##If all occurrences are in one list or the other, bayesian Conf Int is calcualted##
-                    SE = 0.1887*math.log(numone) + 0.2521
-                    #SE = 0.1711*math.log(numone) + 0.35
+                    #SE = 0.1887*math.log(numone) + 0.2521 #95%
+                    SE = 0.1711*math.log(numone) + 0.35 # 90%
                     #SE = 0.2458*math.log(numone) + 0.0423
-                    #SE = 0.135*math.log(numone) + 0.5089
+                    #SE = 0.135*math.log(numone) + 0.5089 #75%
                     #SE = 0.175 *math.log(numone) +.331108
                 else:
-                    SE = 1.7 *math.sqrt(p*(1-p)/n)       
+                    SE = 1*math.sqrt(p*(1-p)/n)       
                 confint = (p-SE)
-                newrule = [z,confint/q,numone+numtwo,1]
+                newrule = [z,confint/v,numone+numtwo,1]
             else:
+                #p is the proportion of all instances of a gram occuring in list two.
+                #q is the proprtion of all grams occuring in list two. used for normalizing.
+                #v is the proportion of all distinct grams occuring in list two. used for normalizing.
+                #n is the total number of occurences of the gram.
                 p = (numtwo/float(numtwo+numone))
                 q = listtwograms/float(listonegrams+listtwograms)
+                v = vocabtwo/float(vocabone+vocabtwo)
                 n = numone + numtwo
                 if numtwo == n:
                     ##If all occurrences are in one list or the other, bayesian Conf Int is calcualted##
-                    SE = 0.1887*math.log(numtwo) + 0.2521
-                    #SE = 0.1711*math.log(numtwo) + 0.35
+                    #SE = 0.1887*math.log(numtwo) + 0.2521 #95%
+                    SE = 0.1711*math.log(numtwo) + 0.35 #90%
                     #SE = 0.2458*math.log(numtwo) + 0.0423
-                    #SE = 0.135*math.log(numtwo) + 0.5089
+                    #SE = 0.135*math.log(numtwo) + 0.5089 #75%
                     #SE = 0.175 *math.log(numtwo) +.331108
                 else:
-                    SE = 1.7*math.sqrt(p*(1-p)/n)
+                    SE = 1*math.sqrt(p*(1-p)/n)
                 confint = (p-SE)
-                newrule = [z,confint/q,numone+numtwo,0]
+                newrule = [z,confint/v,numone+numtwo,0]
             rules.append(newrule)
+        ## we now sort the rules by the lowerbound of the confidence interval calculated.
         rules.sort(key = lambda x: -x[1])
+        #for x in range (0,25):
+        #    print rules[x][1]
+        #    print rules[x][3]
+        
         self.rules = rules
         self.allvocab = allvocab
         self.listone = listone
@@ -248,15 +277,16 @@ if __name__ == '__main__':
     kaggle=kaggle[1:]
     #print len(kaggle)
     #print len(train)
-    '''
+  
     a = truth_vector(valid)
-    
+    '''
     b = predicitify(train,valid,2,2)
     print calculate_accuracy(a,b)
     '''
+    
     d = truth_vector(kaggle)
-    c = predicitify(train,kaggle,2,2)
-    print calculate_accuracy(d,c)
+    c = predicitify(train,kaggle,1,1)
+    #print calculate_accuracy(d,c)
     number = 0
     print 'Id'+','+'Label'
     for x in c:
