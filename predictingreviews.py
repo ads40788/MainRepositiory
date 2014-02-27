@@ -13,6 +13,8 @@ import csv
 
 #Create Separate Sets of Grams for each of the 4 Categories of Veracity/Affect#
 def clean_sort_gramify(text,true,positive,n):
+    '''uses clean_gramify to clean text up, and sorted lines to
+    select for only a certain category of grams.'''
     if true ==2:
         sortedlines = sort_lines_brief(text,positive)
     else:    
@@ -22,6 +24,8 @@ def clean_sort_gramify(text,true,positive,n):
     return grams
 
 def clean_gramify(text,n):
+    '''Turns text into a series of grams, after using the clean_up_lines_two
+    function to scrub it and make it a series of individual tokens.'''
     gramtuples =[]
     cleanedlines = clean_up_lines_two(text,n)
     for x in cleanedlines:
@@ -30,6 +34,8 @@ def clean_gramify(text,n):
     return gramtuples
 
 def sort_lines(stringtext,a,b):
+    '''Sorts lines based on their truthfullness - which is stored in the
+    first character of the string'''
     sortedtext = []
     text = stringtext
     for x in text:
@@ -39,6 +45,8 @@ def sort_lines(stringtext,a,b):
     return sortedtext
 
 def sort_lines_brief(stringtext,b):
+    '''Sorts strings based on their positive of negative affect -
+    which is stored in the 3rd character of the string'''
     sortedtext = []
     text = stringtext
     for x in text:
@@ -60,6 +68,7 @@ def ngramify(word_list,z):
     return listofgrams
 
 def clean_up_lines(stringtext,n):
+    """Takes lines of text and sends them theough 'clean_up' """
     cleanedtext = []
     for x in stringtext:
         y = clean_up(x,n)
@@ -68,6 +77,7 @@ def clean_up_lines(stringtext,n):
     return cleanedtext
 
 def clean_up_lines_two(stringtext,n):
+    """Takes lines of text and sends them theough 'clean_up' """
     cleanedtext = []
     for x in stringtext:
         cleanedline = []
@@ -75,10 +85,10 @@ def clean_up_lines_two(stringtext,n):
         for z in y:
             cleanedline.append(z)
         cleanedtext.append(cleanedline)
-    #print cleanedtext
     return cleanedtext
 
 def clean_up(stringtext,n):
+    '''Turns text into a list of words, scrubs out unnecessary features.'''
     text = stringtext
     text = re.sub(r'<.*>','',text)
     #replace verse numbers (beginning of sentence) with <s> tag
@@ -101,6 +111,9 @@ def clean_up(stringtext,n):
     return text
 
 class gramdict:
+    '''This class takes two lists and a number as an argument in it's initializer,
+    and uses both the lists to create a set of rules that are eventually used to sort sentences
+    in the test set.  The lists both contain a series of grams, the number determines the n in n-gram.'''
     def __init__(self,listone,listtwo,number):
         ##Creates a list of decision rules for two distinct lists of grams.
         ##Dictionary counts the occurences of grams in the first list.
@@ -155,15 +168,16 @@ class gramdict:
                 n = numone + numtwo
                 if numone == n:
                     ##If all occurrences are in one list or the other, bayesian Conf Int is calcualted##
-                    #SE = 0.1887*math.log(numone) + 0.2521 #95%
-                    SE = 0.1711*math.log(numone) + 0.35 # 90%
-                    #SE = 0.2458*math.log(numone) + 0.0423
+                    SE = 0.1887*math.log(numone) + 0.2521 #95%
+                    #SE = 0.1711*math.log(numone) + 0.35 # 90%
+                    #SE = 0.2458*math.log(numone) + 0.0423 #99%
                     #SE = 0.135*math.log(numone) + 0.5089 #75%
-                    #SE = 0.175 *math.log(numone) +.331108
                 else:
-                    SE = 1*math.sqrt(p*(1-p)/n)       
+                    SE = 1*math.sqrt(p*(1-p)/n) 
                 confint = (p-SE)
-                newrule = [z,confint/v,numone+numtwo,1]
+                
+                
+                newrule = [z,confint/q,numone+numtwo,1]
             else:
                 #p is the proportion of all instances of a gram occuring in list two.
                 #q is the proprtion of all grams occuring in list two. used for normalizing.
@@ -173,17 +187,18 @@ class gramdict:
                 q = listtwograms/float(listonegrams+listtwograms)
                 v = vocabtwo/float(vocabone+vocabtwo)
                 n = numone + numtwo
+                
                 if numtwo == n:
                     ##If all occurrences are in one list or the other, bayesian Conf Int is calcualted##
-                    #SE = 0.1887*math.log(numtwo) + 0.2521 #95%
-                    SE = 0.1711*math.log(numtwo) + 0.35 #90%
-                    #SE = 0.2458*math.log(numtwo) + 0.0423
+                    SE = 0.1887*math.log(numtwo) + 0.2521 #95%
+                    #SE = 0.1711*math.log(numtwo) + 0.35 #90%
+                    #SE = 0.2458*math.log(numtwo) + 0.0423 #99%
                     #SE = 0.135*math.log(numtwo) + 0.5089 #75%
-                    #SE = 0.175 *math.log(numtwo) +.331108
                 else:
                     SE = 1*math.sqrt(p*(1-p)/n)
                 confint = (p-SE)
-                newrule = [z,confint/v,numone+numtwo,0]
+                
+                newrule = [z,confint/q,numone+numtwo,0]
             rules.append(newrule)
         ## we now sort the rules by the lowerbound of the confidence interval calculated.
         rules.sort(key = lambda x: -x[1])
@@ -196,21 +211,25 @@ class gramdict:
         self.listone = listone
         self.listtwo = listtwo
           
-def predicitify(trainset,testset,posnum,truthnum):
+def predicitify(trainset,testset,ngramnum):
+    '''This function does the bulk of the work.  It creates 3 series' of rules
+    based on the train set, and uses 'rule_check' to test each line in the testset and
+    assign it a value. It returns a list of 1s and 0s, corresponding to the predicted truth
+    value of each statement.'''
     ###Determine if the review is generally positive or negative for each set.###
     ##create list for positive data
-    allposdata = clean_sort_gramify(trainset,2,1,posnum)
+    allposdata = clean_sort_gramify(trainset,2,1,ngramnum)
     ##create list for negative data
-    allnegdata = clean_sort_gramify(trainset,2,0,posnum)
+    allnegdata = clean_sort_gramify(trainset,2,0,ngramnum)
     ##find rules for positive vs negative data
-    truepos = clean_sort_gramify(trainset,1,1,truthnum)
-    falsepos = clean_sort_gramify(trainset,0,1,truthnum)
-    trueneg = clean_sort_gramify(trainset,1,0,truthnum)
-    falseneg = clean_sort_gramify(trainset,0,0,truthnum)
-    posornegrules = gramdict(allposdata,allnegdata,posnum).rules
-    posrules = gramdict(truepos,falsepos,truthnum).rules
-    negrules = gramdict(trueneg,falseneg,truthnum).rules
-    testlines = clean_gramify(testset,posnum)
+    truepos = clean_sort_gramify(trainset,1,1,ngramnum)
+    falsepos = clean_sort_gramify(trainset,0,1,ngramnum)
+    trueneg = clean_sort_gramify(trainset,1,0,ngramnum)
+    falseneg = clean_sort_gramify(trainset,0,0,ngramnum)
+    posornegrules = gramdict(allposdata,allnegdata,ngramnum).rules
+    posrules = gramdict(truepos,falsepos,ngramnum).rules
+    negrules = gramdict(trueneg,falseneg,ngramnum).rules
+    testlines = clean_gramify(testset,ngramnum)
     ###determine if tuple should follow positive or negative rule set###
     firstresults =[]
     for a in testlines:
@@ -235,7 +254,7 @@ def predicitify(trainset,testset,posnum,truthnum):
     return vectorizedresults
     
 def rule_check(rules,lineoftext):
-    """helper for predictify"""  
+    """Helper for predictify."""  
     for x in rules:
         for a in lineoftext:
             if x[0] == a:
@@ -243,12 +262,16 @@ def rule_check(rules,lineoftext):
     return[lineoftext,0]
 
 def truth_vector(linesoftext):
+    '''Used to caluclate a list of trues and falses from a list of hotel reviews.'''
     vector = []
     for x in linesoftext:
         vector.append(x[0])
     return vector
 
 def calculate_accuracy(x,y):
+    '''Function used for checking accuracy of a list of predictions
+    against a list of 1s and 0s. Also prints the total number of
+    trues and falses predicted.''' 
     z = len(x)
     p = 0
     q = 0
@@ -265,6 +288,35 @@ def calculate_accuracy(x,y):
         else:
             falses = falses + 1
     print trues
+    print falses
+    return float(p)/float(q)
+
+if __name__ == '__main__':
+    tic = time.time()
+    train = open('reviews.train').readlines()
+    test = open('reviews.test').readlines()
+    valid = open('reviews.valid').readlines()
+    kaggle = open('kaggle_data_file.txt').readlines()
+    kaggle=kaggle[1:]
+    
+    '''predicting and training against kaggle set'''
+    d = truth_vector(kaggle)
+    c = predicitify(train,kaggle,1)
+    print calculate_accuracy(d,c)
+    
+    '''predicting and training against validation set '''
+    e=truth_vector(valid)
+    f=predicitify(train,valid,2)
+    print calculate_accuracy(e,f)
+    
+    '''printing results'''
+    #number = 0
+    #print 'Id'+','+'Label'
+    #for x in c:
+    #    print str(number) +',' + str(x)
+    #    number = number + 1
+    #print time.time() - tic
+
     print falses
     return float(p)/float(q)
 
